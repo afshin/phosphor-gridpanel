@@ -650,20 +650,31 @@ class DraggableGridPanel extends GridPanel {
     this.node.removeEventListener('mousedown', this);
   }
   private _evtMouseDown(event: MouseEvent): void {
+    // Ignore right-clicks.
     if (event.button !== 0) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
+    // Start listening to mouse move and mouse up events for dragging.
     document.addEventListener('mouseup', this, true);
     document.addEventListener('mousemove', this, true);
+    // Find out which widget is being dragged. Get its row/col position.
+    // Store that position locally. Store the mouse cursor position as well.
   }
   private _evtMouseMove(event: MouseEvent): void {
     console.log('mouse is moving');
+    // After some movement threshold has been crossed, remove the widget being
+    // dragged from the GridPanel and create a dummy widget in its place in the
+    // same position. As the mouse moves, calculate which row/col the dummy
+    // widget belongs in and update GridPanel to show that.
   }
   private _evtMouseUp(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+    // Check the row/col position of the dummy widget and set the original,
+    // removed widget to have that position. Delete the dummy widget.
+    // Remove the document wide eent listeners.
     document.removeEventListener('mouseup', this, true);
     document.removeEventListener('mousemove', this, true);
   }
