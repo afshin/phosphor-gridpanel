@@ -619,6 +619,56 @@ class GridPanel extends Widget {
   private _colSizers: BoxSizer[] = [];
 }
 
+/**
+ * A Phosphor layout widget which arranges its children into a 2D grid and
+ * allows users to reorder children by dragging and dropping.
+ */
+export
+class DraggableGridPanel extends GridPanel {
+  constructor() {
+    super();
+  }
+  handleEvent(event: Event): void {
+    switch (event.type) {
+    case 'mousedown':
+      this._evtMouseDown(<MouseEvent>event);
+      break;
+    case 'mousemove':
+      this._evtMouseMove(<MouseEvent>event);
+      break;
+    case 'mouseup':
+      this._evtMouseUp(<MouseEvent>event);
+      break;
+    }
+  }
+  protected onAfterAttach(msg: Message): void {
+    super.onAfterAttach(msg);
+    this.node.addEventListener('mousedown', this);
+  }
+  protected onBeforeDetach(msg: Message): void {
+    super.onBeforeDetach(msg);
+    this.node.removeEventListener('mousedown', this);
+  }
+  private _evtMouseDown(event: MouseEvent): void {
+    if (event.button !== 0) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    document.addEventListener('mouseup', this, true);
+    document.addEventListener('mousemove', this, true);
+  }
+  private _evtMouseMove(event: MouseEvent): void {
+    console.log('mouse is moving');
+  }
+  private _evtMouseUp(event: MouseEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
+    document.removeEventListener('mouseup', this, true);
+    document.removeEventListener('mousemove', this, true);
+  }
+}
+
 
 /**
  * An options object used to initialize a spec.

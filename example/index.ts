@@ -12,7 +12,7 @@ import {
 } from 'phosphor-widget';
 
 import {
-  GridPanel, Spec
+  GridPanel, DraggableGridPanel, Spec
 } from '../lib/index';
 
 import './index.css';
@@ -20,8 +20,12 @@ import './index.css';
 
 function createContent(name: string): Widget {
   var widget = new Widget();
+  var content = (Math.random() + '')
+    .substr(2, 10).split('')
+    .map(i => String.fromCharCode(65 + (+i))).join('');
   widget.addClass('content');
   widget.addClass(name);
+  widget.node.innerHTML = content;
   return widget;
 }
 
@@ -37,34 +41,34 @@ function main(): void {
   var b2 = createContent('blue');
   var y2 = createContent('yellow');
 
-  GridPanel.setRow(r1, 0);
-  GridPanel.setColumn(r1, 0);
+  DraggableGridPanel.setRow(r1, 0);
+  DraggableGridPanel.setColumn(r1, 0);
 
-  GridPanel.setRow(g1, 1);
-  GridPanel.setColumn(g1, 0);
+  DraggableGridPanel.setRow(g1, 1);
+  DraggableGridPanel.setColumn(g1, 0);
 
-  GridPanel.setRow(b1, 2);
-  GridPanel.setColumn(b1, 0);
+  DraggableGridPanel.setRow(b1, 2);
+  DraggableGridPanel.setColumn(b1, 0);
 
-  GridPanel.setRow(y1, 0);
-  GridPanel.setColumn(y1, 1);
-  GridPanel.setRowSpan(y1, 2);
-  GridPanel.setColumnSpan(y1, 3);
+  DraggableGridPanel.setRow(y1, 0);
+  DraggableGridPanel.setColumn(y1, 1);
+  DraggableGridPanel.setRowSpan(y1, 2);
+  DraggableGridPanel.setColumnSpan(y1, 3);
 
-  GridPanel.setRow(r2, 2);
-  GridPanel.setColumn(r2, 1);
+  DraggableGridPanel.setRow(r2, 2);
+  DraggableGridPanel.setColumn(r2, 1);
 
-  GridPanel.setRow(g2, 2);
-  GridPanel.setColumn(g2, 2);
+  DraggableGridPanel.setRow(g2, 2);
+  DraggableGridPanel.setColumn(g2, 2);
 
-  GridPanel.setRow(b2, 0);
-  GridPanel.setColumn(b2, 4);
-  GridPanel.setRowSpan(b2, 3);
+  DraggableGridPanel.setRow(b2, 0);
+  DraggableGridPanel.setColumn(b2, 4);
+  DraggableGridPanel.setRowSpan(b2, 3);
 
-  GridPanel.setRow(y2, 2);
-  GridPanel.setColumn(y2, 3);
+  DraggableGridPanel.setRow(y2, 2);
+  DraggableGridPanel.setColumn(y2, 3);
 
-  var panel = new GridPanel();
+  var panel = new DraggableGridPanel();
   panel.id = 'main';
 
   panel.rowSpecs = [
