@@ -725,7 +725,7 @@ class DraggableGridPanel extends GridPanel {
     document.removeEventListener('mousemove', this, true);
   }
 
-  private _moveChild(widget: Widget, column: Number, row: Number): void {
+  private _moveChild(widget: Widget, column: number, row: number): void {
     console.log('column', column, 'row', row);
   }
 
@@ -746,10 +746,10 @@ class DraggableGridPanel extends GridPanel {
 }
 
 interface IPressData {
-  lastColumn: Number;
-  lastRow: Number;
-  originalColumn: Number;
-  originalRow: Number;
+  lastColumn: number;
+  lastRow: number;
+  originalColumn: number;
+  originalRow: number;
   widget: Widget;
 }
 
