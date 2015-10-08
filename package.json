@@ -6,6 +6,7 @@
   "typings": "lib/index.d.ts",
   "dependencies": {
     "phosphor-boxengine": "^0.9.3",
+    "phosphor-domutil": "^0.9.5",
     "phosphor-messaging": "^1.0.4",
     "phosphor-properties": "^1.1.2",
     "phosphor-widget": "^0.9.9"

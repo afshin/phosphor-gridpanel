@@ -12,6 +12,10 @@ import {
 } from 'phosphor-boxengine';
 
 import {
+hitTest
+} from 'phosphor-domutil';
+
+import {
   Message, postMessage, sendMessage
 } from 'phosphor-messaging';
 
@@ -625,9 +629,23 @@ class GridPanel extends Widget {
  */
 export
 class DraggableGridPanel extends GridPanel {
+  /**
+   * Construct a draggable grid panel.
+   */
   constructor() {
     super();
   }
+
+  /**
+   * Handle the DOM events for the draggable grid panel.
+   *
+   * @param event - The DOM event sent to the panel.
+   *
+   * #### Notes
+   * This method implements the DOM `EventListener` interface and is
+   * called in response to events on the panel's DOM node. It should
+   * not be called directly by user code.
+   */
   handleEvent(event: Event): void {
     switch (event.type) {
     case 'mousedown':
@@ -641,43 +659,98 @@ class DraggableGridPanel extends GridPanel {
       break;
     }
   }
+
   protected onAfterAttach(msg: Message): void {
     super.onAfterAttach(msg);
     this.node.addEventListener('mousedown', this);
   }
+
   protected onBeforeDetach(msg: Message): void {
     super.onBeforeDetach(msg);
     this.node.removeEventListener('mousedown', this);
   }
+
+  /**
+   * Handle the `'mousedown'` event for the draggable grid panel.
+   */
   private _evtMouseDown(event: MouseEvent): void {
     // Ignore right-clicks.
     if (event.button !== 0) {
       return;
     }
+    // Find out which widget is being dragged and bail if necessary.
+    var widget = this._widgetSelected(event);
+    if (!widget) {
+      return;
+    }
     event.preventDefault();
     event.stopPropagation();
+    var column = DraggableGridPanel.getColumn(widget);
+    var row = DraggableGridPanel.getRow(widget);
+    this._pressData = {
+      lastColumn: column,
+      lastRow: row,
+      originalColumn: column,
+      originalRow: row,
+      widget: widget
+    };
     // Start listening to mouse move and mouse up events for dragging.
     document.addEventListener('mouseup', this, true);
     document.addEventListener('mousemove', this, true);
-    // Find out which widget is being dragged. Get its row/col position.
-    // Store that position locally. Store the mouse cursor position as well.
   }
+
+  /**
+   * Handle the `'mousemove'` event for the draggable grid panel.
+   */
   private _evtMouseMove(event: MouseEvent): void {
-    console.log('mouse is moving');
-    // After some movement threshold has been crossed, remove the widget being
-    // dragged from the GridPanel and create a dummy widget in its place in the
-    // same position. As the mouse moves, calculate which row/col the dummy
-    // widget belongs in and update GridPanel to show that.
+    var widget = this._widgetSelected(event);
+    if (!widget) {
+      return;
+    }
+    var column = DraggableGridPanel.getColumn(widget);
+    var row = DraggableGridPanel.getRow(widget);
+    this._moveChild(widget, column, row);
   }
+
+  /**
+   * Handle the `'mouseup'` event for the draggable grid panel.
+   */
   private _evtMouseUp(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
     // Check the row/col position of the dummy widget and set the original,
     // removed widget to have that position. Delete the dummy widget.
-    // Remove the document wide eent listeners.
+    // Remove the document wide event listeners.
     document.removeEventListener('mouseup', this, true);
     document.removeEventListener('mousemove', this, true);
   }
+
+  private _moveChild(widget: Widget, column: Number, row: Number): void {
+    console.log('column', column, 'row', row);
+  }
+
+  /**
+   * Find which child widget resides beneath the cursor
+   */
+  private _widgetSelected(event: MouseEvent): Widget {
+    for (var i = 0, n = this.childCount; i < n; ++i) {
+        var widget = this.childAt(i);
+        if (hitTest(widget.node, event.clientX, event.clientY)) {
+          return widget;
+        }
+    }
+    return null;
+  }
+
+  private _pressData: IPressData = null;
+}
+
+interface IPressData {
+  lastColumn: Number;
+  lastRow: Number;
+  originalColumn: Number;
+  originalRow: Number;
+  widget: Widget;
 }
 
 
