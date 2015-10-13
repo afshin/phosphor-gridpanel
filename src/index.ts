@@ -679,7 +679,7 @@ class DraggableGridPanel extends GridPanel {
       return;
     }
     // Find out which widget is being dragged and bail if necessary.
-    var widget = this._widgetSelected(event);
+    var widget = this._findChildAt(event.clientX, event.clientY);
     if (!widget) {
       return;
     }
@@ -703,13 +703,16 @@ class DraggableGridPanel extends GridPanel {
    * Handle the `'mousemove'` event for the draggable grid panel.
    */
   private _evtMouseMove(event: MouseEvent): void {
-    var widget = this._widgetSelected(event);
+    var widget = this._findChildAt(event.clientX, event.clientY);
     if (!widget) {
       return;
     }
     var column = DraggableGridPanel.getColumn(widget);
     var row = DraggableGridPanel.getRow(widget);
-    this._moveChild(widget, column, row);
+    var { lastColumn, lastRow } = this._pressData;
+    if (lastColumn !== column || lastRow !== row) {
+      this._moveChild(widget, column, row);
+    }
   }
 
   /**
@@ -725,21 +728,27 @@ class DraggableGridPanel extends GridPanel {
     document.removeEventListener('mousemove', this, true);
   }
 
-  private _moveChild(widget: Widget, column: number, row: number): void {
-    console.log('column', column, 'row', row);
+  /**
+   * Find which child widget resides beneath a position coordinate.
+   */
+  private _findChildAt(x: number, y: number): Widget {
+      for (var i = 0, n = this.childCount; i < n; ++i) {
+          var widget = this.childAt(i);
+          if (hitTest(widget.node, x, y)) {
+              return widget;
+          }
+      }
+      return null;
   }
 
   /**
-   * Find which child widget resides beneath the cursor
+   * Move a widget inside a draggable grid panel to a specific column and row.
    */
-  private _widgetSelected(event: MouseEvent): Widget {
-    for (var i = 0, n = this.childCount; i < n; ++i) {
-        var widget = this.childAt(i);
-        if (hitTest(widget.node, event.clientX, event.clientY)) {
-          return widget;
-        }
-    }
-    return null;
+  private _moveChild(widget: Widget, column: number, row: number): void {
+    var {lastColumn, lastRow} = this._pressData;
+    console.log(`move from {${lastColumn}, ${lastRow}} to {${column}, ${row}}`);
+    this._pressData.lastColumn = column;
+    this._pressData.lastRow = row;
   }
 
   private _pressData: IPressData = null;
