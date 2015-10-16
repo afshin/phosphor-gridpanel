@@ -8,24 +8,29 @@
 'use strict';
 
 import {
-  BoxSizer, boxCalc
+BoxSizer, boxCalc
 } from 'phosphor-boxengine';
 
 import {
-hitTest
+IDisposable
+} from 'phosphor-disposable';
+
+import {
+hitTest, overrideCursor
 } from 'phosphor-domutil';
 
 import {
-  Message, postMessage, sendMessage
+Message, postMessage, sendMessage
 } from 'phosphor-messaging';
 
 import {
-  IChangedArgs, Property
+IChangedArgs, Property
 } from 'phosphor-properties';
 
 import {
-  ChildMessage, MSG_AFTER_ATTACH, MSG_BEFORE_DETACH, MSG_LAYOUT_REQUEST,
-  ResizeMessage, Widget
+attachWidget, detachWidget, ChildMessage, IOffsetRect,
+MSG_AFTER_ATTACH, MSG_BEFORE_DETACH, MSG_LAYOUT_REQUEST,
+ResizeMessage, Widget
 } from 'phosphor-widget';
 
 import './index.css';
@@ -35,7 +40,7 @@ import './index.css';
  * A Phosphor layout widget which arranges its children into a 2D grid.
  */
 export
-class GridPanel extends Widget {
+  class GridPanel extends Widget {
   /**
    * The class name added to GridPanel instances.
    */
@@ -621,12 +626,16 @@ class GridPanel extends Widget {
   private _colSizers: BoxSizer[] = [];
 }
 
+enum DragMode {
+  Unaffected
+}
+
 /**
  * A Phosphor layout widget which arranges its children into a 2D grid and
  * allows users to reorder children by dragging and dropping.
  */
 export
-class DraggableGridPanel extends GridPanel {
+  class DraggableGridPanel extends GridPanel {
   /**
    * Construct a draggable grid panel.
    */
@@ -646,15 +655,15 @@ class DraggableGridPanel extends GridPanel {
    */
   handleEvent(event: Event): void {
     switch (event.type) {
-    case 'mousedown':
-      this._evtMouseDown(<MouseEvent>event);
-      break;
-    case 'mousemove':
-      this._evtMouseMove(<MouseEvent>event);
-      break;
-    case 'mouseup':
-      this._evtMouseUp(<MouseEvent>event);
-      break;
+      case 'mousedown':
+        this._evtMouseDown(<MouseEvent>event);
+        break;
+      case 'mousemove':
+        this._evtMouseMove(<MouseEvent>event);
+        break;
+      case 'mouseup':
+        this._evtMouseUp(<MouseEvent>event);
+        break;
     }
   }
 
@@ -677,21 +686,22 @@ class DraggableGridPanel extends GridPanel {
       return;
     }
     // Find out which widget is being dragged and bail if necessary.
-    var widget = this._findChildAt(event.clientX, event.clientY);
-    if (!widget) {
+    var original = this._findChildAt(event.clientX, event.clientY);
+    if (!original) {
       return;
     }
     event.preventDefault();
     event.stopPropagation();
-    var column = DraggableGridPanel.getColumn(widget);
-    var row = DraggableGridPanel.getRow(widget);
-    this._pressData = {
-      lastColumn: column,
-      lastRow: row,
-      originalColumn: column,
-      originalRow: row,
-      widget: widget
-    };
+    var override = overrideCursor('move');
+    var rect = original.node.getBoundingClientRect();
+    var startX = event.clientX;
+    var startY = event.clientY;
+    var dummy = this._replaceChildWithDummy(original);
+    this._pressData = { dummy, original, override, rect, startX, startY };
+    var { left, top, width, height } = rect;
+    original.setOffsetGeometry(left, top, width, height);
+    original.node.style.position = 'absolute';
+    attachWidget(original, document.body);
     // Start listening to mouse move and mouse up events for dragging.
     document.addEventListener('mouseup', this, true);
     document.addEventListener('mousemove', this, true);
@@ -701,16 +711,16 @@ class DraggableGridPanel extends GridPanel {
    * Handle the `'mousemove'` event for the draggable grid panel.
    */
   private _evtMouseMove(event: MouseEvent): void {
+    var { original, rect, startX, startY } = this._pressData;
+    var { left, top, width, height } = rect;
+    var deltaX = event.clientX - startX;
+    var deltaY = event.clientY - startY;
+    original.setOffsetGeometry(left + deltaX, top + deltaY, width, height);
     var widget = this._findChildAt(event.clientX, event.clientY);
-    if (!widget) {
+    if (!widget || widget === this._pressData.dummy) {
       return;
     }
-    var column = DraggableGridPanel.getColumn(widget);
-    var row = DraggableGridPanel.getRow(widget);
-    var { lastColumn, lastRow } = this._pressData;
-    if (lastColumn !== column || lastRow !== row) {
-      this._moveChild(widget, column, row);
-    }
+    this._shiftChild(widget);
   }
 
   /**
@@ -719,6 +729,9 @@ class DraggableGridPanel extends GridPanel {
   private _evtMouseUp(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
+    var { dummy, original, override } = this._pressData;
+    this._replaceDummyWithChild(dummy, original);
+    override.dispose();
     // Check the row/col position of the dummy widget and set the original,
     // removed widget to have that position. Delete the dummy widget.
     // Remove the document wide event listeners.
@@ -730,34 +743,84 @@ class DraggableGridPanel extends GridPanel {
    * Find which child widget resides beneath a position coordinate.
    */
   private _findChildAt(x: number, y: number): Widget {
-      for (var i = 0, n = this.childCount; i < n; ++i) {
-          var widget = this.childAt(i);
-          if (hitTest(widget.node, x, y)) {
-              return widget;
-          }
+    for (var i = 0, n = this.childCount; i < n; ++i) {
+      var widget = this.childAt(i);
+      if (hitTest(widget.node, x, y)) {
+        return widget;
       }
-      return null;
+    }
+    return null;
+  }
+
+  private _replaceChildWithDummy(widget: Widget): Widget {
+    var dummy = new Widget();
+    var column = DraggableGridPanel.getColumn(widget);
+    var columnSpan = DraggableGridPanel.getColumnSpan(widget);
+    var row = DraggableGridPanel.getRow(widget);
+    var rowSpan = DraggableGridPanel.getRowSpan(widget);
+    var content = (Math.random() + '')
+      .substr(2, 10).split('')
+      .map(i => String.fromCharCode(65 + (+i))).join('');
+    dummy.node.innerHTML = content;
+    DraggableGridPanel.setColumn(dummy, column);
+    DraggableGridPanel.setColumnSpan(dummy, columnSpan);
+    DraggableGridPanel.setRow(dummy, row);
+    DraggableGridPanel.setRowSpan(dummy, rowSpan);
+    this.removeChild(widget);
+    this.addChild(dummy);
+    return dummy;
+  }
+
+  private _replaceDummyWithChild(dummy: Widget, widget: Widget): void {
+    var column = DraggableGridPanel.getColumn(dummy);
+    var columnSpan = DraggableGridPanel.getColumnSpan(dummy);
+    var row = DraggableGridPanel.getRow(dummy);
+    var rowSpan = DraggableGridPanel.getRowSpan(dummy);
+    widget.clearOffsetGeometry();
+    widget.node.style.position = 'inherit';
+    DraggableGridPanel.setColumn(widget, column);
+    DraggableGridPanel.setColumnSpan(widget, columnSpan);
+    DraggableGridPanel.setRow(widget, row);
+    DraggableGridPanel.setRowSpan(widget, rowSpan);
+    this.removeChild(dummy);
+    this.addChild(widget);
   }
 
   /**
-   * Move a widget inside a draggable grid panel to a specific column and row.
+   * Shift down a child in a draggable grid panel.
    */
-  private _moveChild(widget: Widget, column: number, row: number): void {
-    var {lastColumn, lastRow} = this._pressData;
-    console.log(`move from {${lastColumn}, ${lastRow}} to {${column}, ${row}}`);
-    this._pressData.lastColumn = column;
-    this._pressData.lastRow = row;
+  private _shiftChild(widget: Widget): void {
+    console.log(`move`);
+    // var rowsRequired = 0;
+    // for (var i = 0, n = this.childCount; i < n; ++i) {
+    //     var child = this.childAt(i);
+    //     if (widget === child) {
+    //         continue;
+    //     }
+    //     var childColumn = DraggableGridPanel.getColumn(widget);
+    //     var childColumnSpan = DraggableGridPanel.getColumnSpan(widget);
+    //     var childRow = DraggableGridPanel.getRow(widget);
+    //     var childRowSpan = DraggableGridPanel.getColumnSpan(widget);
+    //     var columnsOverlap = childColumn === column ||
+    //         (childColumn < column && (childColumn + childColumnSpan) > column);
+    //     if (columnsOverlap && childRow >= row) {
+    //       DraggableGridPanel.setRow(child, row + 1);
+    //       rowsRequired = Math.max(rowsRequired, row + childRowSpan);
+    //     }
+    //     console.log('rowsRequired', rowsRequired);
+    // }
   }
 
   private _pressData: IPressData = null;
 }
 
 interface IPressData {
-  lastColumn: number;
-  lastRow: number;
-  originalColumn: number;
-  originalRow: number;
-  widget: Widget;
+  dummy: Widget;
+  original: Widget;
+  override: IDisposable;
+  rect: ClientRect;
+  startX: number;
+  startY: number;
 }
 
 
@@ -765,7 +828,7 @@ interface IPressData {
  * An options object used to initialize a spec.
  */
 export
-interface ISpecOptions {
+  interface ISpecOptions {
   /**
    * The size basis for the spec.
    */
@@ -792,7 +855,7 @@ interface ISpecOptions {
  * An object used to specify a grid row or column.
  */
 export
-class Spec {
+  class Spec {
   /**
    * The property descriptor for the size basis.
    *
